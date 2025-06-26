@@ -1,0 +1,45 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for testing database connectivity
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// Health check model to test database operations
+model HealthCheck {
+  id        Int      @id @default(autoincrement())
+  status    String
+  timestamp DateTime @default(now())
+  metadata  Json?
+
+  @@map("health_checks")
+}
+
+// System status model for monitoring
+model SystemStatus {
+  id           Int      @id @default(autoincrement())
+  serviceName  String
+  status       String   // 'healthy', 'degraded', 'unhealthy'
+  responseTime Int?     // in milliseconds
+  errorMessage String?
+  checkedAt    DateTime @default(now())
+
+  @@map("system_status")
+}

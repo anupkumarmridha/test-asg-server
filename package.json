@@ -3,9 +3,46 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "NODE_ENV=development node server.js",
+    "start:staging": "NODE_ENV=staging node server.js",
+    "start:production": "NODE_ENV=production node server.js",
+    "test": "NODE_ENV=test node server.js",
+    "lint": "echo 'No linting configured yet'",
+    "build": "echo 'No build step required for Node.js'",
+    "docker:build": "docker build -t test-asg-server .",
+    "docker:run": "docker run -p 5000:5000 test-asg-server",
+    "docker:dev": "docker-compose up",
+    "docker:prod": "docker-compose -f docker-compose.prod.yml up",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "db:seed": "node prisma/seed.js",
+    "db:docker": "./scripts/switch-db.sh docker",
+    "db:aws-rds": "./scripts/switch-db.sh aws-rds",
+    "db:status": "./scripts/switch-db.sh"
   },
   "dependencies": {
-    "express": "^4.18.2"
-  }
+    "@prisma/client": "^6.10.1",
+    "dotenv": "^16.5.0",
+    "express": "^4.18.2",
+    "mysql2": "^3.6.5",
+    "pg": "^8.11.3",
+    "prisma": "^6.10.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "nodejs",
+    "express",
+    "api",
+    "docker",
+    "ci-cd"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "description": "A simple Express.js server with health check endpoint and environment configuration"
 }

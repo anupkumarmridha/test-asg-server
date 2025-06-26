@@ -1,18 +1,62 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const app = express();
-const port = 8080;
+const { config, isProduction, isDevelopment } = require('./config');
+const {
+  testDatabaseConnection,
+  getAllUsers,
+  createUser,
+  getUserById,
+  updateUser,
+  deleteUser,
+  getSystemHealth,
+  closeConnection
+} = require('./services/database');
 
-const logFile = path.join(__dirname, 'app.log');
+const app = express();
+const port = config.app.port;
+
+// Ensure logs directory exists
+const logDir = path.dirname(config.logging.file);
+if (!fs.existsSync(logDir) && logDir !== '.') {
+  fs.mkdirSync(logDir, { recursive: true });
+}
+
+const logFile = path.join(__dirname, config.logging.file);
 const logStream = fs.createWriteStream(logFile, { flags: 'a' });
 
-const log = (message) => {
+const log = (message, level = 'info') => {
   const timestamp = new Date().toISOString();
-  const logMessage = `${timestamp} - ${message}\n`;
+  const logMessage = `${timestamp} [${level.toUpperCase()}] - ${message}\n`;
+  
+  // Write to file
   logStream.write(logMessage);
-  console.log(logMessage.trim());
+  
+  // Console logging based on configuration
+  if (config.logging.enableConsole) {
+    console.log(logMessage.trim());
+  }
 };
+
+// Log startup information
+log(`Starting ${config.app.name} v${config.app.version}`);
+log(`Environment: ${config.app.env}`);
+log(`Port: ${port}`);
+log(`Logging to: ${config.logging.file}`);
+log(`Console logging: ${config.logging.enableConsole ? 'enabled' : 'disabled'}`);
+log(`CORS: ${config.api.enableCors ? 'enabled' : 'disabled'}`);
+log(`Metrics: ${config.monitoring.enableMetrics ? 'enabled' : 'disabled'}`);
+
+// Security headers for production
+if (isProduction()) {
+  app.use((req, res, next) => {
+    res.setHeader('X-Powered-By', config.app.name);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    next();
+  });
+}
 
 app.use(express.json());
 app.use((req, res, next) => {
@@ -49,14 +93,41 @@ app.get('/', (req, res) => {
   res.status(200).json(welcomeData);
 });
 
-app.get('/health', (req, res) => {
-  const healthData = {
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
-  };
+app.get(config.healthCheck.endpoint, async (req, res) => {
   log('Health check requested');
-  res.status(200).json(healthData);
+  
+  try {
+    // Test database connection
+    const dbHealth = await testDatabaseConnection();
+    
+    const healthData = {
+      status: dbHealth.connected ? 'healthy' : 'unhealthy',
+      timestamp: new Date().toISOString(),
+      version: config.app.version,
+      environment: config.app.env,
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      database: dbHealth,
+      features: {
+        cors: config.api.enableCors,
+        metrics: config.monitoring.enableMetrics
+      }
+    };
+    
+    const statusCode = dbHealth.connected ? 200 : 503;
+    res.status(statusCode).json(healthData);
+  } catch (error) {
+    log(`Health check failed: ${error.message}`, 'error');
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error.message,
+      database: {
+        connected: false,
+        error: error.message
+      }
+    });
+  }
 });
 
 // API Routes
